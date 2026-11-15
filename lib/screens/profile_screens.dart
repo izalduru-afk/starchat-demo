@@ -221,7 +221,14 @@ class MyProfileTab extends StatelessWidget {
                           builder: (_) => const CompleteProfileScreen(editMode: true)),
                     ),
                   ),
-                  const _MenuItem(icon: Icons.star_outline_rounded, label: 'Stars', soon: true),
+                  _MenuItem(
+                    icon: Icons.star_outline_rounded,
+                    label: 'Stars',
+                    trailingText: '${fmtCount(app.stars)} ⭐',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const StarsScreen()),
+                    ),
+                  ),
                   const _MenuItem(
                       icon: Icons.account_balance_wallet_outlined, label: 'Wallet', soon: true),
                 ]),

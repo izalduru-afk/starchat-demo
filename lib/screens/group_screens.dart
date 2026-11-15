@@ -52,6 +52,52 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       showSnack(context, 'Please complete the group name and link');
       return;
     }
+    _payAndCreate(name, username);
+  }
+
+  Future<void> _payAndCreate(String name, String username) async {
+    final fee = fmtCount(kGroupCreationFee);
+
+    if (!app.canAfford(kGroupCreationFee)) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.star_rounded, color: kStar, size: 36),
+          title: const Text('Not enough Stars'),
+          content: Text(
+            'Creating a group costs $fee Stars. Your balance is ${fmtCount(app.stars)} Stars.\n\n'
+            'Top up will be available soon.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.star_rounded, color: kStar, size: 36),
+        title: Text('Pay $fee Stars?'),
+        content: Text(
+          '$fee Stars will be deducted to create "$name".\n'
+          'Balance after payment: ${fmtCount(app.stars - kGroupCreationFee)} Stars.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Pay $fee'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    app.spendStars(kGroupCreationFee, 'Create group: $name');
     final id = app.createGroup(
       name: name,
       username: username,
@@ -61,6 +107,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: id)),
     );
+    showSnack(context, 'Group created · $fee Stars paid');
   }
 
   @override
@@ -135,6 +182,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               alignLabelWithHint: true,
             ),
           ),
+          const SizedBox(height: 16),
+          const _FeeCard(),
           const SizedBox(height: 22),
           Row(
             children: [
@@ -171,7 +220,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: FilledButton(onPressed: _create, child: const Text('Create Group')),
+          child: FilledButton.icon(
+            onPressed: _create,
+            icon: const Icon(Icons.star_rounded, color: Color(0xFFFCD34D)),
+            label: Text('Create Group · ${fmtCount(kGroupCreationFee)}'),
+          ),
         ),
       ),
     );
@@ -426,6 +479,160 @@ class BioSection extends StatelessWidget {
           BioText(text: text),
         ],
       ),
+    );
+  }
+}
+
+
+const kStar = Color(0xFFD97706);
+
+/// Shows the group creation fee and the user's current Stars balance.
+class _FeeCard extends StatelessWidget {
+  const _FeeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: app,
+      builder: (context, _) {
+        final enough = app.canAfford(kGroupCreationFee);
+        return Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.star_rounded, color: kStar, size: 30),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Group creation fee',
+                        style: TextStyle(fontSize: 13, color: Color(0xFF92400E))),
+                    Text('${fmtCount(kGroupCreationFee)} Stars',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF78350F))),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  const Text('Your balance',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF92400E))),
+                  Text(
+                    fmtCount(app.stars),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: enough ? const Color(0xFF78350F) : kRed,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Simple Stars wallet screen: balance and transaction history.
+class StarsScreen extends StatelessWidget {
+  const StarsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: app,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(title: const Text('Stars')),
+          body: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: kPrimaryDark,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Star Balance',
+                        style: TextStyle(fontSize: 14, color: Color(0xFFD9CFF7))),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.star_rounded, color: Color(0xFFFCD34D), size: 32),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${fmtCount(app.stars)} Stars',
+                          style: const TextStyle(
+                              fontSize: 28, fontWeight: FontWeight.w800, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: kBorder, width: 1.5),
+                    disabledForegroundColor: kMuted,
+                  ),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Top Up Stars · Soon'),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text('Recent Transactions',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kText)),
+              const SizedBox(height: 8),
+              for (final t in app.starHistory)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(t.label,
+                                style: const TextStyle(
+                                    fontSize: 15, fontWeight: FontWeight.w500, color: kText)),
+                            const SizedBox(height: 2),
+                            Text('${fmtDate(t.time)}, ${fmtClock(t.time)}',
+                                style: const TextStyle(fontSize: 12, color: kMuted)),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '${t.amount > 0 ? '+' : '−'}${fmtCount(t.amount.abs())}',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: t.amount > 0 ? kGreen : kRed,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.star_rounded, color: kStar, size: 18),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

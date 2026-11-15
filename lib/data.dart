@@ -55,6 +55,19 @@ class Message {
   bool get mine => senderId == null;
 }
 
+class StarTransaction {
+  StarTransaction(this.label, this.amount, this.time);
+
+  final String label;
+
+  /// Positive for income, negative for spending.
+  final int amount;
+  final DateTime time;
+}
+
+/// Demo fee (in Stars) to create a new group.
+const int kGroupCreationFee = 1000;
+
 class Group {
   Group({
     required this.id,
@@ -147,15 +160,15 @@ class AppState extends ChangeNotifier {
 
   final List<Person> people = [
     Person(id: 'emma', name: 'Emma Wilson', username: 'emmawilson', bio: 'Sharing about design, productivity, and creative communities. Join us: starchat.app/designcommunity', bg: const Color(0xFFFCE7F3), fg: const Color(0xFF9D174D), followers: 3800, followingCount: 342),
-    Person(id: 'daniel', name: 'Daniel Martin', username: 'danielmartin', bio: 'Product designer. Coffee first, then pixels.', bg: const Color(0xFFDBEAFE), fg: const Color(0xFF1E40AF), followers: 1240, followingCount: 410),
+    Person(id: 'daniel', name: 'Daniel Martin', username: 'danielmartin', bio: 'Product designer. Coffee first, then pixels. Join my group: starchat.app/productdesigners', bg: const Color(0xFFDBEAFE), fg: const Color(0xFF1E40AF), followers: 1240, followingCount: 410),
     Person(id: 'sophia', name: 'Sophia Reynolds', username: 'sophiareynolds', bio: 'Community organizer and weekend photographer. Book club: starchat.app/readingcorner', bg: const Color(0xFFFEF3C7), fg: const Color(0xFF92400E), followers: 980, followingCount: 255),
-    Person(id: 'james', name: 'James Turner', username: 'jamesturner', bio: 'Developer who loves open source.', bg: const Color(0xFFDCFCE7), fg: const Color(0xFF166534), followers: 2100, followingCount: 190),
+    Person(id: 'james', name: 'James Turner', username: 'jamesturner', bio: 'Developer who loves open source. Let\u2019s build together: starchat.app/opensourceid', bg: const Color(0xFFDCFCE7), fg: const Color(0xFF166534), followers: 2100, followingCount: 190),
     Person(id: 'nadia', name: 'Nadia Anggraini', username: 'nadiaang', bio: 'Volunteer, reader, and tea enthusiast. Volunteer with us: starchat.app/volunteernetwork', bg: const Color(0xFFEDE9FE), fg: const Color(0xFF5B21B6), followers: 640, followingCount: 300),
     Person(id: 'rina', name: 'Rina Lestari', username: 'rinalestari', bio: 'English teacher. Let’s practice together! starchat.app/englishlearners', bg: const Color(0xFFFFE4E6), fg: const Color(0xFF9F1239), followers: 1520, followingCount: 220),
-    Person(id: 'budi', name: 'Budi Santoso', username: 'budisan', bio: 'Tech community volunteer.', bg: const Color(0xFFE0F2FE), fg: const Color(0xFF075985), followers: 870, followingCount: 400),
-    Person(id: 'sari', name: 'Sari Wulandari', username: 'sariwulan', bio: 'Landscape and street photography.', bg: const Color(0xFFFEF9C3), fg: const Color(0xFF854D0E), followers: 560, followingCount: 150),
-    Person(id: 'rudi', name: 'Rudi Pratama', username: 'rudipratama', bio: '', bg: const Color(0xFFECEAF2), fg: kMuted, followers: 120, followingCount: 80),
-    Person(id: 'kevin', name: 'Kevin Saputra', username: 'kevinsap', bio: '', bg: const Color(0xFFECEAF2), fg: kMuted, followers: 95, followingCount: 60),
+    Person(id: 'budi', name: 'Budi Santoso', username: 'budisan', bio: 'Tech community volunteer. Weekly meetups: starchat.app/techcommunity', bg: const Color(0xFFE0F2FE), fg: const Color(0xFF075985), followers: 870, followingCount: 400),
+    Person(id: 'sari', name: 'Sari Wulandari', username: 'sariwulan', bio: 'Landscape and street photography. Photo walks: starchat.app/streetphotoid', bg: const Color(0xFFFEF9C3), fg: const Color(0xFF854D0E), followers: 560, followingCount: 150),
+    Person(id: 'rudi', name: 'Rudi Pratama', username: 'rudipratama', bio: 'Food hunter. starchat.app/foodlovers', bg: const Color(0xFFECEAF2), fg: kMuted, followers: 120, followingCount: 80),
+    Person(id: 'kevin', name: 'Kevin Saputra', username: 'kevinsap', bio: 'Gamer. starchat.app/gamingzone', bg: const Color(0xFFECEAF2), fg: kMuted, followers: 95, followingCount: 60),
     Person(id: 'admin', name: 'Admin', username: 'starchatadmin', bio: 'Group administrator.', bg: kPrimaryLight, fg: const Color(0xFF5B21B6), followers: 0, followingCount: 0),
   ];
 
@@ -163,6 +176,20 @@ class AppState extends ChangeNotifier {
   final Set<String> followerIds = {'emma', 'daniel', 'nadia', 'rina', 'budi', 'sari'};
   final Set<String> blocked = {'rudi', 'kevin'};
   final Set<String> muted = {};
+
+  // ---- Stars (simulated balance, no real money) ----
+  int stars = 2500;
+  final List<StarTransaction> starHistory = [
+    StarTransaction('Welcome bonus', 2500, DateTime.now().subtract(const Duration(days: 3))),
+  ];
+
+  bool canAfford(int amount) => stars >= amount;
+
+  void spendStars(int amount, String label) {
+    stars -= amount;
+    starHistory.insert(0, StarTransaction(label, -amount, DateTime.now()));
+    notifyListeners();
+  }
 
   bool isMuted(String id) => muted.contains(id);
 
@@ -189,8 +216,8 @@ class AppState extends ChangeNotifier {
 
   void _seed() {
     final now = DateTime.now();
-    DateTime ago({int days = 0, int minutes = 0}) =>
-        now.subtract(Duration(days: days, minutes: minutes));
+    DateTime ago({int days = 0, int hours = 0, int minutes = 0}) =>
+        now.subtract(Duration(days: days, hours: hours, minutes: minutes));
 
     chats['emma'] = [
       Message('Hi Alex!', 'emma', ago(minutes: 40)),
@@ -277,6 +304,43 @@ class AppState extends ChangeNotifier {
         announcement: 'New volunteer opportunities are posted every Monday.',
         messages: [
           Message('We need 10 volunteers for Saturday’s event.', 'admin', ago(days: 1)),
+        ],
+      ),
+      Group(
+        id: 'g_product', name: 'Product Designers', username: 'productdesigners',
+        description: 'Share case studies, portfolios, and product design tips.',
+        members: 974, joined: false, bg: const Color(0xFFDBEAFE), fg: const Color(0xFF1E40AF),
+        announcement: 'Portfolio review session every Friday at 8 PM.',
+        messages: [
+          Message('Who wants feedback on their portfolio this week?', 'daniel', ago(days: 1)),
+          Message('Me please! I just updated mine.', 'emma', ago(hours: 20)),
+        ],
+      ),
+      Group(
+        id: 'g_opensource', name: 'Open Source Indonesia', username: 'opensourceid',
+        description: 'Contribute to open source projects together.',
+        members: 1630, joined: false, bg: const Color(0xFFDCFCE7), fg: const Color(0xFF166534),
+        announcement: 'Hacktoberfest recap is pinned in the files.',
+        messages: [
+          Message('New beginner-friendly issues are up!', 'james', ago(days: 1)),
+        ],
+      ),
+      Group(
+        id: 'g_street', name: 'Street Photography ID', username: 'streetphotoid',
+        description: 'Weekly photo walks and street photo critiques.',
+        members: 528, joined: false, bg: const Color(0xFFFEF9C3), fg: const Color(0xFF854D0E),
+        announcement: 'Next photo walk: Saturday, 6 AM at the old town square.',
+        messages: [
+          Message('Bring a wide lens this Saturday!', 'sari', ago(hours: 30)),
+        ],
+      ),
+      Group(
+        id: 'g_gaming', name: 'Gaming Zone', username: 'gamingzone',
+        description: 'Find teammates and talk about games.',
+        members: 2240, joined: false, bg: const Color(0xFFEDE9FE), fg: const Color(0xFF5B21B6),
+        announcement: '',
+        messages: [
+          Message('Anyone up for a match tonight?', 'kevin', ago(hours: 5)),
         ],
       ),
       Group(

@@ -12,14 +12,54 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  bool _loading = false;
+  /// Which sign-in button is loading: 'google', 'apple', or null.
+  String? _loading;
 
-  Future<void> _continue() async {
-    setState(() => _loading = true);
+  Future<void> _continue(String provider) async {
+    setState(() => _loading = provider);
     await Future<void>.delayed(const Duration(milliseconds: 900));
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const CompleteProfileScreen()),
+    );
+  }
+
+  Widget _signInButton({
+    required String provider,
+    required String label,
+    required Widget icon,
+    required Color background,
+    required Color foreground,
+  }) {
+    final loading = _loading == provider;
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: _loading != null ? null : () => _continue(provider),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: background,
+          foregroundColor: foreground,
+          disabledBackgroundColor: background,
+          disabledForegroundColor: foreground,
+          shape: const StadiumBorder(),
+          elevation: 0,
+        ),
+        child: loading
+            ? SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5, color: foreground),
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  icon,
+                  const SizedBox(width: 12),
+                  Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                ],
+              ),
+      ),
     );
   }
 
@@ -65,45 +105,30 @@ class _SignInScreenState extends State<SignInScreen> {
                   ],
                 ),
               ),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _continue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: kText,
-                    disabledBackgroundColor: Colors.white,
-                    shape: const StadiumBorder(),
-                    elevation: 0,
+              _signInButton(
+                provider: 'google',
+                label: 'Sign in with Google',
+                background: Colors.white,
+                foreground: kText,
+                icon: Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFD6D3E0), width: 1.5),
                   ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: kPrimary),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 28,
-                              height: 28,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0xFFD6D3E0), width: 1.5),
-                              ),
-                              child: const Text('G',
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w800, color: Color(0xFF4C1D95))),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text('Continue with Google',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
+                  child: const Text('G',
+                      style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF4C1D95))),
                 ),
+              ),
+              const SizedBox(height: 12),
+              _signInButton(
+                provider: 'apple',
+                label: 'Sign in with Apple',
+                background: Colors.black,
+                foreground: Colors.white,
+                icon: const Icon(Icons.apple, size: 26, color: Colors.white),
               ),
               const SizedBox(height: 16),
               const Text(
