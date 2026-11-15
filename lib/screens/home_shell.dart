@@ -123,52 +123,51 @@ class _NavItem extends StatelessWidget {
             color: selected ? kPrimaryLight : Colors.transparent,
             borderRadius: BorderRadius.circular(28),
           ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Icon(icon, color: color, size: 24),
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: color,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              if (badge > 0)
-                Positioned(
-                  top: 4,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Transform.translate(
-                      offset: const Offset(16, 0),
+                  if (badge > 0)
+                    Positioned(
+                      top: -6,
+                      left: 14,
                       child: Container(
-                        constraints: const BoxConstraints(minWidth: 20),
-                        height: 20,
+                        height: 18,
+                        constraints: const BoxConstraints(minWidth: 18),
                         padding: const EdgeInsets.symmetric(horizontal: 5),
-                        alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: const Color(0xFFDC2626),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(9),
                           border: Border.all(color: Colors.white, width: 1.5),
                         ),
-                        child: Text(
-                          badge > 99 ? '99+' : '$badge',
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                        child: Center(
+                          widthFactor: 1,
+                          child: Text(
+                            badge > 99 ? '99+' : '$badge',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              height: 1,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 ),
+              ),
             ],
           ),
         ),
@@ -223,7 +222,7 @@ class HomeTab extends StatelessWidget {
                 option(
                   Icons.group_add_rounded,
                   'New Group',
-                  'Create a group with its own link',
+                  'Create a private group with an invite link',
                   () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
                   ),
@@ -293,7 +292,7 @@ class HomeTab extends StatelessWidget {
                   color: kText)),
           actions: [
             IconButton(
-              tooltip: 'Find users',
+              tooltip: 'Search',
               style: IconButton.styleFrom(
                 backgroundColor: kSurface,
                 foregroundColor: kText,

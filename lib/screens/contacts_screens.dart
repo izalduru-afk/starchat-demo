@@ -38,7 +38,7 @@ class _ContactsTabState extends State<ContactsTab> {
     );
   }
 
-  Widget _chip(_ContactFilter f, String label, int count) {
+  Widget _chip(_ContactFilter f, String label) {
     final selected = _filter == f;
     return Expanded(
       child: Material(
@@ -49,45 +49,31 @@ class _ContactsTabState extends State<ContactsTab> {
           onTap: () => setState(() => _filter = f),
           child: SizedBox(
             height: 40,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: selected ? Colors.white : kText,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
+            child: Center(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: selected ? Colors.white : kText,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 ),
-                const SizedBox(width: 5),
-                Container(
-                  constraints: const BoxConstraints(minWidth: 22),
-                  height: 20,
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: selected ? const Color(0x40FFFFFF) : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$count',
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1,
-                      fontWeight: FontWeight.w700,
-                      color: selected ? Colors.white : kText,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 2),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: kMuted),
       ),
     );
   }
@@ -110,50 +96,82 @@ class _ContactsTabState extends State<ContactsTab> {
             _ContactFilter.blocked => blockedList,
           };
           final people = _filtered(source);
+          final searching = _query.trim().isNotEmpty;
+
+          // While searching, look through all three lists (each person shown once).
+          final seen = <String>{};
+          List<Person> unique(List<Person> list) =>
+              _filtered(list).where((p) => seen.add(p.id)).toList();
+          final foundFollowing = searching ? unique(followingList) : <Person>[];
+          final foundFollowers = searching ? unique(followerList) : <Person>[];
+          final foundBlocked = searching ? unique(blockedList) : <Person>[];
+          final foundAny =
+              foundFollowing.isNotEmpty || foundFollowers.isNotEmpty || foundBlocked.isNotEmpty;
 
           return Column(
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
                 child: SearchBox(
-                  hint: 'Search users...',
+                  hint: 'Search contacts...',
                   onChanged: (v) => setState(() => _query = v),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    _chip(_ContactFilter.following, 'Following', followingList.length),
-                    const SizedBox(width: 8),
-                    _chip(_ContactFilter.followers, 'Followers', followerList.length),
-                    const SizedBox(width: 8),
-                    _chip(_ContactFilter.blocked, 'Blocked', blockedList.length),
-                  ],
-                ),
-              ),
-              if (_filter == _ContactFilter.blocked)
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-                  child: Text(
-                    'Blocked users can’t message you or see your profile.',
-                    style: TextStyle(fontSize: 13, color: kMuted, height: 1.5),
+              if (!searching) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      _chip(_ContactFilter.following, 'Following'),
+                      const SizedBox(width: 8),
+                      _chip(_ContactFilter.followers, 'Followers'),
+                      const SizedBox(width: 8),
+                      _chip(_ContactFilter.blocked, 'Blocked'),
+                    ],
                   ),
                 ),
-              const SizedBox(height: 6),
+                if (_filter == _ContactFilter.blocked)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: Text(
+                      'Blocked users can\u2019t message you or see your profile.',
+                      style: TextStyle(fontSize: 13, color: kMuted, height: 1.5),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+              ],
               Expanded(
-                child: people.isEmpty
-                    ? Center(
-                        child: Text(
-                          _query.isNotEmpty ? 'No users found' : 'No one here yet',
-                          style: const TextStyle(color: kMuted),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        itemCount: people.length,
-                        itemBuilder: (context, i) => _row(people[i]),
-                      ),
+                child: searching
+                    ? (!foundAny
+                        ? const Center(
+                            child: Text('No contacts found', style: TextStyle(color: kMuted)))
+                        : ListView(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            children: [
+                              if (foundFollowing.isNotEmpty) ...[
+                                _sectionHeader('Following'),
+                                for (final p in foundFollowing)
+                                  _row(p, _ContactFilter.following),
+                              ],
+                              if (foundFollowers.isNotEmpty) ...[
+                                _sectionHeader('Followers'),
+                                for (final p in foundFollowers)
+                                  _row(p, _ContactFilter.followers),
+                              ],
+                              if (foundBlocked.isNotEmpty) ...[
+                                _sectionHeader('Blocked'),
+                                for (final p in foundBlocked) _row(p, _ContactFilter.blocked),
+                              ],
+                            ],
+                          ))
+                    : people.isEmpty
+                        ? const Center(
+                            child: Text('No one here yet', style: TextStyle(color: kMuted)))
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            itemCount: people.length,
+                            itemBuilder: (context, i) => _row(people[i], _filter),
+                          ),
               ),
             ],
           );
@@ -163,8 +181,8 @@ class _ContactsTabState extends State<ContactsTab> {
     );
   }
 
-  Widget _row(Person p) {
-                          switch (_filter) {
+  Widget _row(Person p, _ContactFilter f) {
+                          switch (f) {
                             case _ContactFilter.following:
                               return PersonTile(
                                 person: p,
@@ -225,71 +243,123 @@ class FindUsersScreen extends StatefulWidget {
 class _FindUsersScreenState extends State<FindUsersScreen> {
   String _query = '';
 
+  String get _q => _query.trim().toLowerCase().replaceFirst('@', '');
+
+  bool _matchPerson(Person p) =>
+      _q.isEmpty || p.name.toLowerCase().contains(_q) || p.username.contains(_q);
+
+  bool _matchGroup(Group g) =>
+      _q.isEmpty || g.name.toLowerCase().contains(_q);
+
+  Widget _section(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: kMuted),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {
-        final results = app.searchUsers(_query);
+        final chatPeople =
+            app.chatIds.map(app.person).where(_matchPerson).toList();
+        final groups = app.joinedGroups.where(_matchGroup).toList();
+        final chatIdSet = app.chatIds.toSet();
+        final users = _q.isEmpty
+            ? <Person>[]
+            : app.searchUsers(_query).where((p) => !chatIdSet.contains(p.id)).toList();
+        final nothing = chatPeople.isEmpty && groups.isEmpty && users.isEmpty;
+
         return Scaffold(
-          appBar: AppBar(title: const Text('Find Users')),
+          appBar: AppBar(title: const Text('Search')),
           body: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
                 child: SearchBox(
-                  hint: 'Search by name or @username',
+                  hint: 'Search chats, groups, or @username',
                   autofocus: true,
                   onChanged: (v) => setState(() => _query = v),
                 ),
               ),
               Expanded(
-                child: _query.trim().isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 40),
-                          child: Text(
-                            'Type a name or @username to find someone.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: kMuted, height: 1.5),
-                          ),
+                child: nothing
+                    ? Center(
+                        child: Text(
+                          _q.isEmpty ? 'No chats or groups yet' : 'No results for "${_query.trim()}"',
+                          style: const TextStyle(color: kMuted),
                         ),
                       )
-                    : results.isEmpty
-                    ? const Center(
-                        child: Text('No users found', style: TextStyle(color: kMuted)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        itemCount: results.length,
-                        itemBuilder: (context, i) {
-                          final p = results[i];
-                          final follows = app.isFollowing(p.id);
-                          return PersonTile(
-                            person: p,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => UserProfileScreen(personId: p.id)),
-                            ),
-                            trailing: follows
-                                ? OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      minimumSize: const Size(0, 36),
-                                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                                    ),
-                                    onPressed: () => app.toggleFollow(p.id),
-                                    child: const Text('Following'),
-                                  )
-                                : FilledButton(
-                                    style: FilledButton.styleFrom(
-                                      minimumSize: const Size(0, 36),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      textStyle: const TextStyle(
-                                          fontSize: 14, fontWeight: FontWeight.w600),
-                                    ),
-                                    onPressed: () => app.toggleFollow(p.id),
-                                    child: const Text('Follow'),
-                                  ),
-                          );
-                        },
+                    : ListView(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        children: [
+                          if (chatPeople.isNotEmpty) ...[
+                            _section('Chats'),
+                            for (final p in chatPeople)
+                              ConversationTile(
+                                leading: Avatar.person(p, size: 48),
+                                title: p.name,
+                                preview: _preview(app.messagesWith(p.id).last),
+                                time: fmtTime(app.messagesWith(p.id).last.time),
+                                unread: app.unread[p.id] ?? 0,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => ChatScreen(personId: p.id)),
+                                ),
+                              ),
+                          ],
+                          if (groups.isNotEmpty) ...[
+                            _section('Groups'),
+                            for (final g in groups)
+                              ConversationTile(
+                                leading: GroupAvatar(group: g, size: 48),
+                                title: g.name,
+                                preview: g.link,
+                                time: '',
+                                unread: g.unread,
+                                subtitle: '${fmtCount(g.members)} members',
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) => GroupChatScreen(groupId: g.id)),
+                                ),
+                              ),
+                          ],
+                          if (users.isNotEmpty) ...[
+                            _section('Users'),
+                            for (final p in users)
+                              PersonTile(
+                                person: p,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                      builder: (_) => UserProfileScreen(personId: p.id)),
+                                ),
+                                trailing: app.isFollowing(p.id)
+                                    ? OutlinedButton(
+                                        style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(0, 36),
+                                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                                        ),
+                                        onPressed: () => app.toggleFollow(p.id),
+                                        child: const Text('Following'),
+                                      )
+                                    : FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          minimumSize: const Size(0, 36),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                                          textStyle: const TextStyle(
+                                              fontSize: 14, fontWeight: FontWeight.w600),
+                                        ),
+                                        onPressed: () => app.toggleFollow(p.id),
+                                        child: const Text('Follow'),
+                                      ),
+                              ),
+                          ],
+                        ],
                       ),
               ),
             ],
@@ -298,4 +368,6 @@ class _FindUsersScreenState extends State<FindUsersScreen> {
       },
     );
   }
+
+  String _preview(Message m) => m.mine ? 'You: ${m.text}' : m.text;
 }

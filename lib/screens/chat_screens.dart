@@ -166,7 +166,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   Future<void> _copyLink(Group g) async {
     await Clipboard.setData(ClipboardData(text: 'https://${g.link}'));
-    if (mounted) showSnack(context, 'Group link copied');
+    if (mounted) showSnack(context, 'Invite link copied');
   }
 
   Future<void> _leave(Group g) async {
@@ -239,7 +239,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 },
                 itemBuilder: (_) => const [
                   PopupMenuItem(value: 'info', child: Text('Group Info')),
-                  PopupMenuItem(value: 'copy', child: Text('Copy Group Link')),
+                  PopupMenuItem(value: 'copy', child: Text('Copy Invite Link')),
                   PopupMenuItem(
                       value: 'leave', child: Text('Leave Group', style: TextStyle(color: kRed))),
                 ],
@@ -304,7 +304,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: () => app.joinGroup(g.id),
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => GroupPreviewScreen(groupId: g.id, fromChat: true)),
+                          ),
                           child: const Text('Join Group'),
                         ),
                       ),

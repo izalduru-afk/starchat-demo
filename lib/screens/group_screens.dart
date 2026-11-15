@@ -14,48 +14,27 @@ class CreateGroupScreen extends StatefulWidget {
 
 class _CreateGroupScreenState extends State<CreateGroupScreen> {
   final _name = TextEditingController();
-  final _username = TextEditingController();
   final _description = TextEditingController();
-  final Set<String> _selected = {};
-  bool _usernameEdited = false;
   bool _submitted = false;
 
   @override
   void dispose() {
     _name.dispose();
-    _username.dispose();
     _description.dispose();
     super.dispose();
-  }
-
-  String? get _usernameError {
-    final u = _username.text.trim();
-    if (u.isEmpty) return _submitted ? 'Group username is required' : null;
-    if (!kUsernamePattern.hasMatch(u)) return 'Use 3–30 lowercase letters, numbers, or _';
-    if (app.isGroupUsernameTaken(u)) return 'This link is already taken';
-    return null;
-  }
-
-  void _onNameChanged(String value) {
-    if (!_usernameEdited) {
-      final slug = slugify(value);
-      _username.text = slug.length > 30 ? slug.substring(0, 30) : slug;
-    }
-    setState(() {});
   }
 
   void _create() {
     setState(() => _submitted = true);
     final name = _name.text.trim();
-    final username = _username.text.trim();
-    if (name.isEmpty || username.isEmpty || _usernameError != null) {
-      showSnack(context, 'Please complete the group name and link');
+    if (name.isEmpty) {
+      showSnack(context, 'Please enter a group name');
       return;
     }
-    _payAndCreate(name, username);
+    _payAndCreate(name);
   }
 
-  Future<void> _payAndCreate(String name, String username) async {
+  Future<void> _payAndCreate(String name) async {
     final fee = fmtCount(kGroupCreationFee);
 
     if (!app.canAfford(kGroupCreationFee)) {
@@ -100,22 +79,17 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     app.spendStars(kGroupCreationFee, 'Create group: $name');
     final id = app.createGroup(
       name: name,
-      username: username,
       description: _description.text.trim(),
-      memberIds: _selected,
+      memberIds: const <String>{},
     );
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: id)),
     );
-    showSnack(context, 'Group created · $fee Stars paid');
+    showSnack(context, 'Group created · $fee Stars paid · invite link ready');
   }
 
   @override
   Widget build(BuildContext context) {
-    final usernameError = _usernameError;
-    final usernameOk = _username.text.trim().isNotEmpty && usernameError == null;
-    final people = app.followingPeople;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Create New Group')),
       body: ListView(
@@ -143,7 +117,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                 child: TextField(
                   controller: _name,
                   textCapitalization: TextCapitalization.words,
-                  onChanged: _onNameChanged,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     labelText: 'Group Name',
                     errorText:
@@ -154,22 +128,25 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          TextField(
-            controller: _username,
-            autocorrect: false,
-            onChanged: (_) => setState(() => _usernameEdited = true),
-            decoration: InputDecoration(
-              labelText: 'Group Username / Link',
-              prefixText: 'starchat.app/',
-              prefixStyle: const TextStyle(color: kMuted, fontSize: 16),
-              suffixIcon:
-                  usernameOk ? const Icon(Icons.check_circle_rounded, color: kGreen) : null,
-              helperText: usernameOk
-                  ? 'Available — people can find and join with this link'
-                  : 'People can find and join your group with this link',
-              helperStyle: TextStyle(color: usernameOk ? kGreen : kMuted),
-              helperMaxLines: 2,
-              errorText: usernameError,
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: kPrimaryLight,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lock_outline_rounded, color: kPrimary, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'This is a private group. A secret invite link (starchat.app/+…) '
+                    'will be created automatically. Only people with the link can join.',
+                    style: TextStyle(fontSize: 13, height: 1.45, color: kPrimaryDark),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -182,48 +159,21 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               alignLabelWithHint: true,
             ),
           ),
-          const SizedBox(height: 16),
-          const _FeeCard(),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              const Expanded(
-                child: Text('Add Members',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kText)),
-              ),
-              Text('${_selected.length} selected',
-                  style: const TextStyle(fontSize: 13, color: kMuted)),
-            ],
-          ),
-          const SizedBox(height: 2),
-          const Text('From people you follow', style: TextStyle(fontSize: 13, color: kMuted)),
-          const SizedBox(height: 6),
-          for (final p in people)
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _selected.contains(p.id),
-              activeColor: kPrimary,
-              onChanged: (v) => setState(() {
-                if (v == true) {
-                  _selected.add(p.id);
-                } else {
-                  _selected.remove(p.id);
-                }
-              }),
-              secondary: Avatar.person(p, size: 44),
-              title: Text(p.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: kText)),
-              subtitle: Text('@${p.username}', style: const TextStyle(color: kMuted)),
-            ),
         ],
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          child: FilledButton.icon(
+          child: FilledButton(
             onPressed: _create,
-            icon: const Icon(Icons.star_rounded, color: Color(0xFFFCD34D)),
-            label: Text('Create Group · ${fmtCount(kGroupCreationFee)}'),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Create Group · ${fmtCount(kGroupCreationFee)}'),
+                const SizedBox(width: 4),
+                const Icon(Icons.star_rounded, color: Color(0xFFFCD34D), size: 22),
+              ],
+            ),
           ),
         ),
       ),
@@ -322,14 +272,72 @@ class _SearchGroupsScreenState extends State<SearchGroupsScreen> {
   }
 }
 
-/// Shown when someone opens a group link or taps a group they haven't joined.
+/// Shown when someone opens a group invite link.
+/// Shows only the group name, member count, description, and the join price.
 class GroupPreviewScreen extends StatelessWidget {
   const GroupPreviewScreen({super.key, required this.groupId, this.fromChat = false});
 
   final String groupId;
 
-  /// True when opened from inside the group chat, so "Open Chat" just goes back.
+  /// True when opened from inside the group chat, so the button just goes back.
   final bool fromChat;
+
+  Future<void> _join(BuildContext context, Group g) async {
+    final fee = g.joinFee;
+
+    if (fee > 0) {
+      if (!app.canAfford(fee)) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            icon: const Icon(Icons.star_rounded, color: kStar, size: 36),
+            title: const Text('Not enough Stars'),
+            content: Text(
+              'Joining this group costs ${fmtCount(fee)} Stars. '
+              'Your balance is ${fmtCount(app.stars)} Stars.\n\nTop up will be available soon.',
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            ],
+          ),
+        );
+        return;
+      }
+
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.star_rounded, color: kStar, size: 36),
+          title: Text('Pay ${fmtCount(fee)} Stars?'),
+          content: Text(
+            '${fmtCount(fee)} Stars will be deducted to join "${g.name}".\n'
+            'Balance after payment: ${fmtCount(app.stars - fee)} Stars.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text('Pay ${fmtCount(fee)}'),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !context.mounted) return;
+      app.spendStars(fee, 'Join group: ${g.name}');
+    }
+
+    app.joinGroup(g.id);
+    if (!context.mounted) return;
+    if (fromChat) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: g.id)),
+      );
+    }
+    showSnack(context, fee > 0 ? 'Joined · ${fmtCount(fee)} Stars paid' : 'Joined ${g.name}');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -337,6 +345,8 @@ class GroupPreviewScreen extends StatelessWidget {
       listenable: app,
       builder: (context, _) {
         final g = app.group(groupId);
+        final free = g.joinFee == 0;
+
         return Scaffold(
           appBar: AppBar(),
           body: ListView(
@@ -344,41 +354,60 @@ class GroupPreviewScreen extends StatelessWidget {
             children: [
               Center(child: GroupAvatar(group: g, size: 104)),
               const SizedBox(height: 16),
-              Text(g.name,
+              Text(
+                g.name,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kText),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.groups_rounded, size: 18, color: kMuted),
+                  const SizedBox(width: 6),
+                  Text('${fmtCount(g.members)} members',
+                      style: const TextStyle(fontSize: 14, color: kMuted)),
+                ],
+              ),
+              if (g.description.isNotEmpty) ...[
+                const SizedBox(height: 22),
+                Text(
+                  g.description,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: kText)),
-              const SizedBox(height: 4),
-              Text(g.link,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: kPrimary, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 20),
-              StatBox(items: [
-                (fmtCount(g.members), 'Members'),
-                (g.joined ? 'Joined' : 'Open', 'Status'),
-              ]),
-              const SizedBox(height: 22),
-              if (g.description.isNotEmpty) InfoSection(title: 'About', body: g.description),
-              if (g.announcement.isNotEmpty)
-                InfoSection(title: 'Announcement', body: g.announcement),
+                  style: const TextStyle(fontSize: 15, height: 1.5, color: Color(0xFF3F3A4F)),
+                ),
+              ],
             ],
           ),
           bottomNavigationBar: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-              child: FilledButton(
-                onPressed: () {
-                  if (fromChat) {
-                    app.joinGroup(g.id);
-                    Navigator.of(context).pop();
-                    return;
-                  }
-                  if (!g.joined) app.joinGroup(g.id);
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: g.id)),
-                  );
-                },
-                child: Text(g.joined ? 'Open Chat' : 'Join Group'),
-              ),
+              child: g.joined
+                  ? FilledButton(
+                      onPressed: () {
+                        if (fromChat) {
+                          Navigator.of(context).pop();
+                        } else {
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: g.id)),
+                          );
+                        }
+                      },
+                      child: const Text('Open Chat'),
+                    )
+                  : FilledButton(
+                      onPressed: () => _join(context, g),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(free ? 'Join Group · Free' : 'Join Group · ${fmtCount(g.joinFee)}'),
+                          if (!free) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.star_rounded, color: Color(0xFFFCD34D), size: 22),
+                          ],
+                        ],
+                      ),
+                    ),
             ),
           ),
         );
@@ -386,7 +415,6 @@ class GroupPreviewScreen extends StatelessWidget {
     );
   }
 }
-
 
 /// Bio text where group links such as starchat.app/designcommunity can be tapped.
 class BioText extends StatefulWidget {
@@ -400,7 +428,7 @@ class BioText extends StatefulWidget {
 
 class _BioTextState extends State<BioText> {
   static final RegExp _linkPattern =
-      RegExp(r'(?:https?://)?(?:www\.)?starchat\.app/([A-Za-z0-9_]+)');
+      RegExp(r'(?:https?://)?(?:www\.)?starchat\.app/\+([A-Za-z0-9_]+)');
 
   final List<TapGestureRecognizer> _recognizers = [];
 
@@ -420,7 +448,7 @@ class _BioTextState extends State<BioText> {
   void _openGroup(String username) {
     final g = app.groupByUsername(username);
     if (g == null) {
-      showSnack(context, 'Group starchat.app/$username was not found');
+      showSnack(context, 'This invite link is invalid or has expired');
       return;
     }
     Navigator.of(context).push(
@@ -485,61 +513,6 @@ class BioSection extends StatelessWidget {
 
 
 const kStar = Color(0xFFD97706);
-
-/// Shows the group creation fee and the user's current Stars balance.
-class _FeeCard extends StatelessWidget {
-  const _FeeCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: app,
-      builder: (context, _) {
-        final enough = app.canAfford(kGroupCreationFee);
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEF3C7),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.star_rounded, color: kStar, size: 30),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Group creation fee',
-                        style: TextStyle(fontSize: 13, color: Color(0xFF92400E))),
-                    Text('${fmtCount(kGroupCreationFee)} Stars',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF78350F))),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text('Your balance',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF92400E))),
-                  Text(
-                    fmtCount(app.stars),
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: enough ? const Color(0xFF78350F) : kRed,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
 
 /// Simple Stars wallet screen: balance and transaction history.
 class StarsScreen extends StatelessWidget {
