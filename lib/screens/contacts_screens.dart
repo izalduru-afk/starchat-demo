@@ -40,18 +40,54 @@ class _ContactsTabState extends State<ContactsTab> {
 
   Widget _chip(_ContactFilter f, String label, int count) {
     final selected = _filter == f;
-    return ChoiceChip(
-      label: Text('$label $count'),
-      selected: selected,
-      showCheckmark: false,
-      onSelected: (_) => setState(() => _filter = f),
-      selectedColor: kPrimary,
-      backgroundColor: kSurface,
-      side: BorderSide.none,
-      shape: const StadiumBorder(),
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : kText,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+    return Expanded(
+      child: Material(
+        color: selected ? kPrimary : kSurface,
+        shape: const StadiumBorder(),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: () => setState(() => _filter = f),
+          child: SizedBox(
+            height: 40,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: selected ? Colors.white : kText,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 5),
+                Container(
+                  constraints: const BoxConstraints(minWidth: 22),
+                  height: 20,
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0x40FFFFFF) : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Colors.white : kText,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -59,12 +95,9 @@ class _ContactsTabState extends State<ContactsTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 64,
-        title: const Text('Contacts',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kText)),
-      ),
-      body: ListenableBuilder(
+      body: SafeArea(
+        bottom: false,
+        child: ListenableBuilder(
         listenable: app,
         builder: (context, _) {
           final followingList = app.followingPeople;
@@ -81,14 +114,13 @@ class _ContactsTabState extends State<ContactsTab> {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
                 child: SearchBox(
                   hint: 'Search users...',
                   onChanged: (v) => setState(() => _query = v),
                 ),
               ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
@@ -126,6 +158,7 @@ class _ContactsTabState extends State<ContactsTab> {
             ],
           );
         },
+        ),
       ),
     );
   }
@@ -179,5 +212,90 @@ class _ContactsTabState extends State<ContactsTab> {
                                 ),
                               );
                           }
+  }
+}
+
+class FindUsersScreen extends StatefulWidget {
+  const FindUsersScreen({super.key});
+
+  @override
+  State<FindUsersScreen> createState() => _FindUsersScreenState();
+}
+
+class _FindUsersScreenState extends State<FindUsersScreen> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: app,
+      builder: (context, _) {
+        final results = app.searchUsers(_query);
+        return Scaffold(
+          appBar: AppBar(title: const Text('Find Users')),
+          body: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: SearchBox(
+                  hint: 'Search by name or @username',
+                  autofocus: true,
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+              Expanded(
+                child: _query.trim().isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 40),
+                          child: Text(
+                            'Type a name or @username to find someone.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: kMuted, height: 1.5),
+                          ),
+                        ),
+                      )
+                    : results.isEmpty
+                    ? const Center(
+                        child: Text('No users found', style: TextStyle(color: kMuted)))
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        itemCount: results.length,
+                        itemBuilder: (context, i) {
+                          final p = results[i];
+                          final follows = app.isFollowing(p.id);
+                          return PersonTile(
+                            person: p,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => UserProfileScreen(personId: p.id)),
+                            ),
+                            trailing: follows
+                                ? OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size(0, 36),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    ),
+                                    onPressed: () => app.toggleFollow(p.id),
+                                    child: const Text('Following'),
+                                  )
+                                : FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      minimumSize: const Size(0, 36),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      textStyle: const TextStyle(
+                                          fontSize: 14, fontWeight: FontWeight.w600),
+                                    ),
+                                    onPressed: () => app.toggleFollow(p.id),
+                                    child: const Text('Follow'),
+                                  ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }

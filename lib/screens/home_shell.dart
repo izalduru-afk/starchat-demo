@@ -24,28 +24,153 @@ class _HomeShellState extends State<HomeShell> {
         index: _index,
         children: const [HomeTab(), ContactsTab(), MyProfileTab()],
       ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(border: Border(top: BorderSide(color: kBorder))),
-        child: NavigationBar(
-          selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home',
+      bottomNavigationBar: ListenableBuilder(
+        listenable: app,
+        builder: (context, _) => _FloatingNav(
+          index: _index,
+          homeBadge: app.totalUnread,
+          onSelect: (i) => setState(() => _index = i),
+        ),
+      ),
+    );
+  }
+}
+
+/// Rounded, floating bottom navigation bar.
+class _FloatingNav extends StatelessWidget {
+  const _FloatingNav({required this.index, required this.homeBadge, required this.onSelect});
+
+  final int index;
+  final int homeBadge;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    const items = [
+      (Icons.home_outlined, Icons.home_rounded, 'Home'),
+      (Icons.people_outline_rounded, Icons.people_rounded, 'Contacts'),
+      (Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+    ];
+
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Container(
+            height: 68,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(34),
+              border: Border.all(color: kBorder),
+              boxShadow: const [
+                BoxShadow(color: Color(0x1F1F1A2E), blurRadius: 24, offset: Offset(0, 8)),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.people_outline_rounded),
-              selectedIcon: Icon(Icons.people_rounded),
-              label: 'Contacts',
+            child: Row(
+              children: [
+                for (var i = 0; i < items.length; i++)
+                  Expanded(
+                    child: _NavItem(
+                      icon: index == i ? items[i].$2 : items[i].$1,
+                      label: items[i].$3,
+                      selected: index == i,
+                      badge: i == 0 ? homeBadge : 0,
+                      onTap: () => onSelect(i),
+                    ),
+                  ),
+              ],
             ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
-            ),
-          ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.badge,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final int badge;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? kPrimary : kMuted;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 56,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: selected ? kPrimaryLight : Colors.transparent,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: color, size: 24),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: color,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              if (badge > 0)
+                Positioned(
+                  top: 4,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Transform.translate(
+                      offset: const Offset(16, 0),
+                      child: Container(
+                        constraints: const BoxConstraints(minWidth: 20),
+                        height: 20,
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDC2626),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
+                        child: Text(
+                          badge > 99 ? '99+' : '$badge',
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -54,6 +179,62 @@ class _HomeShellState extends State<HomeShell> {
 
 class HomeTab extends StatelessWidget {
   const HomeTab({super.key});
+
+  void _showCreateMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      builder: (sheetContext) {
+        Widget option(IconData icon, String title, String subtitle, VoidCallback onTap) {
+          return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+            leading: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: kPrimaryLight,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: kPrimary),
+            ),
+            title: Text(title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kText)),
+            subtitle: Text(subtitle, style: const TextStyle(color: kMuted)),
+            onTap: () {
+              Navigator.of(sheetContext).pop();
+              onTap();
+            },
+          );
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                option(
+                  Icons.chat_bubble_outline_rounded,
+                  'New Chat',
+                  'Message someone you follow',
+                  () => _newChat(context),
+                ),
+                option(
+                  Icons.group_add_rounded,
+                  'New Group',
+                  'Create a group with its own link',
+                  () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   void _newChat(BuildContext context) {
     showModalBottomSheet<void>(
@@ -103,22 +284,38 @@ class HomeTab extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           toolbarHeight: 64,
-          title: const Text('Home',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: kText)),
+          titleSpacing: 20,
+          title: const Text('StarChat',
+              style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: kText)),
           actions: [
             IconButton(
-              tooltip: 'Find groups',
-              icon: const Icon(Icons.search_rounded),
+              tooltip: 'Find users',
+              style: IconButton.styleFrom(
+                backgroundColor: kSurface,
+                foregroundColor: kText,
+                fixedSize: const Size(44, 44),
+              ),
+              icon: const Icon(Icons.search_rounded, size: 22),
               onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SearchGroupsScreen()),
+                MaterialPageRoute(builder: (_) => const FindUsersScreen()),
               ),
             ),
-            IconButton(
-              tooltip: 'New chat',
-              icon: const Icon(Icons.add_comment_outlined),
-              onPressed: () => _newChat(context),
-            ),
             const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'New chat or group',
+              style: IconButton.styleFrom(
+                backgroundColor: kPrimary,
+                foregroundColor: Colors.white,
+                fixedSize: const Size(44, 44),
+              ),
+              icon: const Icon(Icons.edit_outlined, size: 21),
+              onPressed: () => _showCreateMenu(context),
+            ),
+            const SizedBox(width: 16),
           ],
           bottom: const TabBar(
             labelColor: kPrimary,
@@ -182,27 +379,12 @@ class _GroupList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final groups = app.joinedGroups;
+    if (groups.isEmpty) {
+      return const Center(child: Text('No groups yet', style: TextStyle(color: kMuted)));
+    }
     return ListView(
       padding: const EdgeInsets.only(top: 6, bottom: 12),
       children: [
-        _ActionRow(
-          icon: Icons.group_add_rounded,
-          label: 'Create New Group',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
-          ),
-        ),
-        _ActionRow(
-          icon: Icons.travel_explore_rounded,
-          label: 'Find Groups',
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const SearchGroupsScreen()),
-          ),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 10, 20, 2),
-          child: Divider(),
-        ),
         for (final g in groups)
           ConversationTile(
             leading: GroupAvatar(group: g),
@@ -226,39 +408,5 @@ class _GroupList extends StatelessWidget {
     final sender = app.maybePerson(m.senderId);
     if (sender == null) return m.text;
     return '${sender.name.split(' ').first}: ${m.text}';
-  }
-}
-
-class _ActionRow extends StatelessWidget {
-  const _ActionRow({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: kPrimaryLight,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: kPrimary),
-            ),
-            const SizedBox(width: 14),
-            Text(label,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kPrimary)),
-          ],
-        ),
-      ),
-    );
   }
 }

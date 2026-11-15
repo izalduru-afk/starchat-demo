@@ -146,12 +146,12 @@ class AppState extends ChangeNotifier {
   DateTime? myDob = DateTime(1990, 5, 15);
 
   final List<Person> people = [
-    Person(id: 'emma', name: 'Emma Wilson', username: 'emmawilson', bio: 'Sharing about design, productivity, and creative communities.', bg: const Color(0xFFFCE7F3), fg: const Color(0xFF9D174D), followers: 3800, followingCount: 342),
+    Person(id: 'emma', name: 'Emma Wilson', username: 'emmawilson', bio: 'Sharing about design, productivity, and creative communities. Join us: starchat.app/designcommunity', bg: const Color(0xFFFCE7F3), fg: const Color(0xFF9D174D), followers: 3800, followingCount: 342),
     Person(id: 'daniel', name: 'Daniel Martin', username: 'danielmartin', bio: 'Product designer. Coffee first, then pixels.', bg: const Color(0xFFDBEAFE), fg: const Color(0xFF1E40AF), followers: 1240, followingCount: 410),
-    Person(id: 'sophia', name: 'Sophia Reynolds', username: 'sophiareynolds', bio: 'Community organizer and weekend photographer.', bg: const Color(0xFFFEF3C7), fg: const Color(0xFF92400E), followers: 980, followingCount: 255),
+    Person(id: 'sophia', name: 'Sophia Reynolds', username: 'sophiareynolds', bio: 'Community organizer and weekend photographer. Book club: starchat.app/readingcorner', bg: const Color(0xFFFEF3C7), fg: const Color(0xFF92400E), followers: 980, followingCount: 255),
     Person(id: 'james', name: 'James Turner', username: 'jamesturner', bio: 'Developer who loves open source.', bg: const Color(0xFFDCFCE7), fg: const Color(0xFF166534), followers: 2100, followingCount: 190),
-    Person(id: 'nadia', name: 'Nadia Anggraini', username: 'nadiaang', bio: 'Volunteer, reader, and tea enthusiast.', bg: const Color(0xFFEDE9FE), fg: const Color(0xFF5B21B6), followers: 640, followingCount: 300),
-    Person(id: 'rina', name: 'Rina Lestari', username: 'rinalestari', bio: 'English teacher. Let’s practice together!', bg: const Color(0xFFFFE4E6), fg: const Color(0xFF9F1239), followers: 1520, followingCount: 220),
+    Person(id: 'nadia', name: 'Nadia Anggraini', username: 'nadiaang', bio: 'Volunteer, reader, and tea enthusiast. Volunteer with us: starchat.app/volunteernetwork', bg: const Color(0xFFEDE9FE), fg: const Color(0xFF5B21B6), followers: 640, followingCount: 300),
+    Person(id: 'rina', name: 'Rina Lestari', username: 'rinalestari', bio: 'English teacher. Let’s practice together! starchat.app/englishlearners', bg: const Color(0xFFFFE4E6), fg: const Color(0xFF9F1239), followers: 1520, followingCount: 220),
     Person(id: 'budi', name: 'Budi Santoso', username: 'budisan', bio: 'Tech community volunteer.', bg: const Color(0xFFE0F2FE), fg: const Color(0xFF075985), followers: 870, followingCount: 400),
     Person(id: 'sari', name: 'Sari Wulandari', username: 'sariwulan', bio: 'Landscape and street photography.', bg: const Color(0xFFFEF9C3), fg: const Color(0xFF854D0E), followers: 560, followingCount: 150),
     Person(id: 'rudi', name: 'Rudi Pratama', username: 'rudipratama', bio: '', bg: const Color(0xFFECEAF2), fg: kMuted, followers: 120, followingCount: 80),
@@ -162,6 +162,14 @@ class AppState extends ChangeNotifier {
   final Set<String> following = {'emma', 'daniel', 'sophia', 'james', 'nadia'};
   final Set<String> followerIds = {'emma', 'daniel', 'nadia', 'rina', 'budi', 'sari'};
   final Set<String> blocked = {'rudi', 'kevin'};
+  final Set<String> muted = {};
+
+  bool isMuted(String id) => muted.contains(id);
+
+  void toggleMute(String id) {
+    if (!muted.remove(id)) muted.add(id);
+    notifyListeners();
+  }
 
   final Map<String, List<Message>> chats = {};
   final Map<String, int> unread = {};
@@ -302,6 +310,16 @@ class AppState extends ChangeNotifier {
 
   List<Person> get blockedPeople => people.where((p) => blocked.contains(p.id)).toList();
 
+  /// All users that can be found by search (excludes the admin account and blocked users).
+  List<Person> searchUsers(String query) {
+    final q = query.trim().toLowerCase().replaceFirst('@', '');
+    return people.where((p) {
+      if (p.id == 'admin' || blocked.contains(p.id)) return false;
+      if (q.isEmpty) return true;
+      return p.name.toLowerCase().contains(q) || p.username.contains(q);
+    }).toList();
+  }
+
   bool isFollowing(String id) => following.contains(id);
   bool isBlocked(String id) => blocked.contains(id);
 
@@ -353,6 +371,18 @@ class AppState extends ChangeNotifier {
 
   List<Message> messagesWith(String id) => chats.putIfAbsent(id, () => []);
 
+  /// Unread messages across private chats and joined groups (for the Home badge).
+  int get totalUnread {
+    var n = 0;
+    for (final id in chatIds) {
+      n += unread[id] ?? 0;
+    }
+    for (final g in groups) {
+      if (g.joined) n += g.unread;
+    }
+    return n;
+  }
+
   void markRead(String id) {
     if ((unread[id] ?? 0) > 0) {
       unread[id] = 0;
@@ -375,6 +405,14 @@ class AppState extends ChangeNotifier {
 
   // ---- Groups -----------------------------------------------------------------------
   Group group(String id) => groups.firstWhere((g) => g.id == id);
+
+  Group? groupByUsername(String username) {
+    final u = username.toLowerCase();
+    for (final g in groups) {
+      if (g.username == u) return g;
+    }
+    return null;
+  }
 
   List<Group> get joinedGroups {
     final list = groups.where((g) => g.joined).toList();

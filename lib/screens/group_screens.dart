@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../data.dart';
@@ -329,6 +330,102 @@ class GroupPreviewScreen extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+
+/// Bio text where group links such as starchat.app/designcommunity can be tapped.
+class BioText extends StatefulWidget {
+  const BioText({super.key, required this.text});
+
+  final String text;
+
+  @override
+  State<BioText> createState() => _BioTextState();
+}
+
+class _BioTextState extends State<BioText> {
+  static final RegExp _linkPattern =
+      RegExp(r'(?:https?://)?(?:www\.)?starchat\.app/([A-Za-z0-9_]+)');
+
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  void _clearRecognizers() {
+    for (final r in _recognizers) {
+      r.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  void dispose() {
+    _clearRecognizers();
+    super.dispose();
+  }
+
+  void _openGroup(String username) {
+    final g = app.groupByUsername(username);
+    if (g == null) {
+      showSnack(context, 'Group starchat.app/$username was not found');
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => GroupPreviewScreen(groupId: g.id)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _clearRecognizers();
+    const baseStyle = TextStyle(fontSize: 15, height: 1.5, color: Color(0xFF3F3A4F));
+    const linkStyle = TextStyle(
+      fontSize: 15,
+      height: 1.5,
+      color: kPrimary,
+      fontWeight: FontWeight.w600,
+      decoration: TextDecoration.underline,
+      decorationColor: kPrimary,
+    );
+
+    final spans = <InlineSpan>[];
+    var last = 0;
+    for (final m in _linkPattern.allMatches(widget.text)) {
+      if (m.start > last) {
+        spans.add(TextSpan(text: widget.text.substring(last, m.start)));
+      }
+      final username = m.group(1)!;
+      final recognizer = TapGestureRecognizer()..onTap = () => _openGroup(username);
+      _recognizers.add(recognizer);
+      spans.add(TextSpan(text: m.group(0), style: linkStyle, recognizer: recognizer));
+      last = m.end;
+    }
+    if (last < widget.text.length) {
+      spans.add(TextSpan(text: widget.text.substring(last)));
+    }
+
+    return Text.rich(TextSpan(style: baseStyle, children: spans));
+  }
+}
+
+class BioSection extends StatelessWidget {
+  const BioSection({super.key, required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Bio',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kText)),
+          const SizedBox(height: 6),
+          BioText(text: text),
+        ],
+      ),
     );
   }
 }
